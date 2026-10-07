@@ -14,6 +14,12 @@ Requer Node.js 22 ou superior. Não há dependências para instalar.
 
 ## Hospedagem
 
+### Vercel
+
+Importe `ronald-almeida/IA`, branch `main`. Use a raiz `./` e mantenha Build Command e Output Directory sem override. O servidor `server.mjs` é detectado pelo suporte nativo a Node.js da Vercel; caso o painel peça um preset, selecione Other. Install Command pode ficar no padrão. Use Node.js 22.x ou superior.
+
+Adicione `BLACKCAT_API_KEY` e `CHECKOUT_TOKEN_SECRET` em Environment Variables antes do deploy. O segundo deve ser um segredo aleatório com pelo menos 32 caracteres. Não configure PORT ou HOST na Vercel. `vercel.json` inclui os arquivos públicos no servidor e define 60 segundos como duração máxima. O deploy real e a geração de cobrança precisam ser verificados após configurar as credenciais.
+
 Este repositório contém frontend e servidor. GitHub Pages sozinho não executa a integração de pagamento. Hospede em um serviço com Node.js, configure as duas variáveis secretas no painel e use `npm start`. Para contêineres, defina `HOST=0.0.0.0`. Em produção, use HTTPS e um proxy confiável que informe `X-Forwarded-Proto: https`. Não publique `.env`.
 
 ## Pagamento sem banco de dados
