@@ -8,7 +8,7 @@ const mime={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8',
 const attempts=new Map();
 setInterval(()=>{for(const [key,value] of attempts)if(value.until<Date.now())attempts.delete(key)},60000).unref();
 function json(res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));}
-async function body(req){let data='';for await(const chunk of req){data+=chunk;if(Buffer.byteLength(data)>8192)throw new Error('Dados muito extensos.');}return JSON.parse(data);}
+async function body(req){if(req.body!==undefined){const data=typeof req.body==='string'?req.body:JSON.stringify(req.body);if(Buffer.byteLength(data)>8192)throw new Error('Dados muito extensos.');return JSON.parse(data);}let data='';for await(const chunk of req){data+=chunk;if(Buffer.byteLength(data)>8192)throw new Error('Dados muito extensos.');}return JSON.parse(data);}
 export async function handler(req,res){
  res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Frame-Options','DENY');res.setHeader('Content-Security-Policy',"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
  let path;try{path=new URL(req.url,'http://localhost').pathname;}catch{return json(res,400,{error:'Requisição inválida.'});}
@@ -39,4 +39,7 @@ export async function handler(req,res){
  if(!['GET','HEAD'].includes(req.method))return json(res,405,{error:'Método não permitido.'});
  try{const file=resolve(publicDir,'.'+decodeURIComponent(path==='/'?'/index.html':path));if(!file.startsWith(resolve(publicDir)+sep))return json(res,404,{error:'Não encontrado.'});const content=await readFile(file);res.writeHead(200,{'Content-Type':mime[extname(file)]||'application/octet-stream','Cache-Control':path.startsWith('/assets/')?'public, max-age=86400':'no-cache'});res.end(req.method==='HEAD'?undefined:content);}catch{json(res,404,{error:'Não encontrado.'});}
 }
-if(process.env.VERCEL === '1' || (process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)))createServer((req,res)=>handler(req,res).catch(()=>{if(!res.headersSent)json(res,500,{error:'Erro temporário.'});else res.end();})).listen(process.env.PORT||3000,process.env.HOST||'127.0.0.1',()=>console.log('Checkout: http://localhost:'+(process.env.PORT||3000)));
+export default async function app(req,res){
+ try{await handler(req,res);}catch(error){console.error('checkout_request_failed',error.name);if(!res.headersSent)json(res,500,{error:'Erro temporário.'});else res.end();}
+}
+if(process.env.VERCEL !== '1' && process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url))createServer(app).listen(process.env.PORT||3000,process.env.HOST||'127.0.0.1',()=>console.log('Checkout: http://localhost:'+(process.env.PORT||3000)));

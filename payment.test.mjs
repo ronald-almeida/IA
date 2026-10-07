@@ -2,8 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { createPayload,signTransaction,verifyTransaction,validDocument,blackcat } from './payment.mjs';
-import { handler } from './server.mjs';
+import handler from './server.mjs';
 const buyer={name:'Cliente Teste',email:'teste@example.com',confirmEmail:'teste@example.com',phone:'11999999999',document:'52998224725'};
+test('Entrada Vercel exporta função e aceita JSON já interpretado',async()=>{
+ assert.equal(typeof handler,'function');
+ const api=process.env.BLACKCAT_API_KEY,secret=process.env.CHECKOUT_TOKEN_SECRET;
+ process.env.BLACKCAT_API_KEY='test-only';process.env.CHECKOUT_TOKEN_SECRET='test-secret'.repeat(5);
+ const req={url:'/api/pix',method:'POST',headers:{'content-type':'application/json'},socket:{remoteAddress:'vercel-test'},body:{...buyer,document:'123'}};
+ let status,result;const res={setHeader(){},writeHead(code){status=code;},end(value){result=JSON.parse(value);}};
+ try{await handler(req,res);assert.equal(status,400);assert.match(result.error,/CPF/);}finally{if(api===undefined)delete process.env.BLACKCAT_API_KEY;else process.env.BLACKCAT_API_KEY=api;if(secret===undefined)delete process.env.CHECKOUT_TOKEN_SECRET;else process.env.CHECKOUT_TOKEN_SECRET=secret;}
+});
 test('Preço e produto são fixados no servidor',()=>{const p=createPayload({...buyer,amount:1});assert.equal(p.amount,19700);assert.equal(p.items[0].unitPrice,19700);assert.equal(p.items[0].tangible,false);});
 test('CPF/CNPJ, confirmação do email e telefone são validados',()=>{assert.ok(validDocument(buyer.document));assert.ok(validDocument('11222333000181'));for(const document of ['11111111111','52998224726','123'])assert.throws(()=>createPayload({...buyer,document}));assert.throws(()=>createPayload({...buyer,confirmEmail:'diferente@example.com'}));assert.throws(()=>createPayload({...buyer,phone:'123'}));});
 test('Token não permite consultar transações adulteradas ou expiradas',()=>{const secret='teste'.repeat(10),token=signTransaction('TXN-TEST',secret,1000);assert.equal(verifyTransaction(token,secret,2000),'TXN-TEST');assert.equal(verifyTransaction(token+'x',secret,2000),null);assert.equal(verifyTransaction(token,'outro',2000),null);assert.equal(verifyTransaction(token,secret,90000000),null);});
